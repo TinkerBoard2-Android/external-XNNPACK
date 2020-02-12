@@ -126,7 +126,7 @@ BEGIN_FUNCTION xnn_f32_gemm_ukernel_6x8__aarch64_neonfma_ld128
 
         # Is there at least 4 floats (16 bytes)?
         SUBS x0, x2, 16  // k = kc - 16
-        B.LO 5f
+        B.LO 2f
 
         # Main loop - 4 floats of A (16 bytes)
         # 48 FMA + 6 ld128 A + 4 LDP B
@@ -195,11 +195,12 @@ BEGIN_FUNCTION xnn_f32_gemm_ukernel_6x8__aarch64_neonfma_ld128
         FMLA v31.4s, v19.4s,  v5.s[3]
         B.HS 1b
 
-        # Is there a remainder?- 2 floats of A (8 bytes) or less
-        TST x0, 15
-        B.NE 5f
-
-4:
+2:
+        # Is there a remainder?- 2 floats of A (8 bytes)
+        TBNZ x0, 3, 4f
+        # Is there a remainder?- 1 floats of A (4 bytes)
+        TBNZ x0, 2, 5f
+3:
         # Clamp
         FMIN v20.4s, v20.4s, v6.4s
         SUBS x1, x1, 8
@@ -228,7 +229,7 @@ BEGIN_FUNCTION xnn_f32_gemm_ukernel_6x8__aarch64_neonfma_ld128
         FMAX v31.4s, v31.4s, v7.4s
 
         # Store full 6 x 8
-        B.LO 7f
+        B.LO 6f
 
         ST1 {v20.16b, v21.16b},  [x6], x14
         SUB  x3,  x3, x2 // a0 -= kc
@@ -244,12 +245,10 @@ BEGIN_FUNCTION xnn_f32_gemm_ukernel_6x8__aarch64_neonfma_ld128
         SUB  x4,  x4, x2 // a5 -= kc
 
         B.HI 0b
+
         RET
 
-5:
-        # Is there a remainder?- 2 floats of A (8 bytes)
-        TBZ x0, 3, 6f
-
+4:
         # Remainder- 2 floats of A (8 bytes)
         LDR   d0,  [x3], 8
         LDP  q16,  q17, [x5], 32
@@ -284,12 +283,10 @@ BEGIN_FUNCTION xnn_f32_gemm_ukernel_6x8__aarch64_neonfma_ld128
         FMLA v27.4s, v19.4s,  v3.s[1]
         FMLA v29.4s, v19.4s,  v4.s[1]
         FMLA v31.4s, v19.4s,  v5.s[1]
+        TBZ x0, 2, 3b
 
-        # Is there a remainder?- 1 floats of A (4 bytes)
-        TBZ x0, 2, 4b
-
-        # Remainder- 1 float of A (4 bytes)
-6:
+5:
+        # Remainder- 1 floats of A (4 bytes)
         LDR   s0,  [x3], 4
         LDP  q16,  q17, [x5], 32
         LDR   s1,  [x9], 4
@@ -309,11 +306,11 @@ BEGIN_FUNCTION xnn_f32_gemm_ukernel_6x8__aarch64_neonfma_ld128
         FMLA v27.4s, v17.4s,  v3.s[0]
         FMLA v29.4s, v17.4s,  v4.s[0]
         FMLA v31.4s, v17.4s,  v5.s[0]
-        B 4b
+        B 3b
 
         # Store odd width
-7:
-        TBZ x1, 2, 8f
+6:
+        TBZ x1, 2, 7f
         STR q20,  [x6], 16
         MOV v20.16b, v21.16b
         STR q22, [x16], 16
@@ -327,8 +324,8 @@ BEGIN_FUNCTION xnn_f32_gemm_ukernel_6x8__aarch64_neonfma_ld128
         STR q30,  [x7], 16
         MOV v30.16b, v31.16b
 
-8:
-        TBZ x1, 1, 9f
+7:
+        TBZ x1, 1, 8f
         STR d20,  [x6], 8
         DUP d20, v20.d[1]
         STR d22, [x16], 8
@@ -342,15 +339,15 @@ BEGIN_FUNCTION xnn_f32_gemm_ukernel_6x8__aarch64_neonfma_ld128
         STR d30,  [x7], 8
         DUP d30, v30.d[1]
 
-9:
-        TBZ x1, 0, 10f
+8:
+        TBZ x1, 0, 9f
         STR s20,  [x6]
         STR s22, [x16]
         STR s24, [x17]
         STR s26, [x18]
         STR s28, [x13]
         STR s30,  [x7]
-10:
+9:
         RET
 
 END_FUNCTION xnn_f32_gemm_ukernel_6x8__aarch64_neonfma_ld128
