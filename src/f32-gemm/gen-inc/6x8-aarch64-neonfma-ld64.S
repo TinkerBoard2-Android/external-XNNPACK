@@ -122,7 +122,7 @@ BEGIN_FUNCTION xnn_f32_gemminc_ukernel_6x8__aarch64_neonfma_ld64
 
         # Is there at least 2 floats (8 bytes) for main loop?
         SUBS x0, x2, 8  // k = kc - 8
-        B.LO 4f
+        B.LO 2f
 
         # Main loop - 2 floats of A (8 bytes)
         # 24 FMA + 6 LD64 A + 2 LDP B
@@ -163,6 +163,7 @@ BEGIN_FUNCTION xnn_f32_gemminc_ukernel_6x8__aarch64_neonfma_ld64
         FMLA v31.4s, v19.4s,  v5.s[1]
         B.HS 1b
 
+2:
         # Is there a remainder?- 1 floats of A (4 bytes)
         TBNZ x0, 2, 4f
 3:
@@ -210,6 +211,7 @@ BEGIN_FUNCTION xnn_f32_gemminc_ukernel_6x8__aarch64_neonfma_ld64
         SUB  x4,  x4, x2 // a5 -= kc
 
         B.HI 0b
+
         RET
 
 4:
